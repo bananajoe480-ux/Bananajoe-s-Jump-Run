@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Super Jump - Adventure</title>
+    <style>
+        body { margin: 0; background: #1a1a1a; color: white; font-family: sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; }
+        canvas { background: #87CEEB; border: 4px solid #fff; border-radius: 10px; display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .info { margin-bottom: 10px; font-size: 20px; }
+        .btn-back { margin-top: 10px; padding: 10px; background: #444; color: white; border: none; cursor: pointer; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="info">Score: <span id="score">0</span> | Best: <span id="highscore">0</span></div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <p>Drücke <b>LEERTASTE</b> oder <b>KLICK</b> zum Springen!</p>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreElement = document.getElementById('score');
+    const highscoreElement = document.getElementById('highscore');
+
+    // Bilder laden (Wir nutzen deine vorhandenen Bilder!)
+    const playerImg = new Image();
+    playerImg.src = 'krone.png'; // Dein Spieler ist die Krone
+
+    const obstacleImg = new Image();
+    obstacleImg.src = 'hand.png'; // Hindernis ist die Hand
+
+    // Spiel-Variablen
+    let score = 0;
+    let highscore = localStorage.getItem('highscore') || 0;
+    highscoreElement.innerText = highscore;
+
+    let gameActive = true;
+    let gravity = 0.6;
+    
+    let player = {
+        x: 50,
+        y: 300,
+        width: 50,
+        height: 50,
+        dy: 0,
+        jumpForce: -12,
+        grounded: false
+    };
+
+    let obstacles = [];
+    let gameSpeed = 5;
+
+    // Steuerung
+    window.addEventListener('keydown', (e) => { if (e.code === 'Space') jump(); });
+    canvas.addEventListener('mousedown', jump);
+
+    function jump() {
+        if (player.grounded && gameActive) {
+            player.dy = player.jumpForce;
+            player.grounded = false;
+        }
+        if (!gameActive) restart();
+    }
+
+    function spawnObstacle() {
+        if (Math.random() < 0.02) {
+            obstacles.push({
+                x: canvas.width,
+                y: 350,
+                width: 40,
+                height: 40
+            });
+        }
+    }
+
+    function update() {
+        if (!gameActive) return;
+
+        // Schwerkraft
+        player.dy += gravity;
+        player.y += player.dy;
+
+        // Boden-Check
+        if (player.y + player.height > 380) {
+            player.y = 380 - player.height;
+            player.dy = 0;
+            player.grounded = true;
+        }
+
+        // Hindernisse bewegen
+        obstacles.forEach((obs, index) => {
+            obs.x -= gameSpeed;
+
+            // Kollision prüfen
+            if (player.x < obs.x + obs.width &&
+                player.x + player.width > obs.x &&
+                player.y < obs.y + obs.height &&
+                player.y + player.height > obs.y) {
+                gameOver();
+            }
+
+            // Aus dem Bild entfernen
+            if (obs.x + obs.width < 0) {
+                obstacles.splice(index, 1);
+                score++;
+                scoreElement.innerText = score;
+                if (score % 5 === 0) gameSpeed += 0.2; // Schneller werden
+            }
+        });
+
+        spawnObstacle();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Boden zeichnen
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(0, 380, canvas.width, 20);
+
+        // Spieler (Krone) zeichnen
+        ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+        // Hindernisse (Hand) zeichnen
+        obstacles.forEach(obs => {
+            ctx.drawImage(obstacleImg, obs.x, obs.y, obs.width, obs.height);
+        });
+
+        if (!gameActive) {
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.font = '40px Arial';
+            ctx.fillText('GAME OVER!', 280, 200);
+            ctx.font = '20px Arial';
+            ctx.fillText('Klicke zum Neustarten', 300, 240);
+        }
+    }
+
+    function gameOver() {
+        gameActive = false;
+        if (score > highscore) {
+            highscore = score;
+            localStorage.setItem('highscore', highscore);
+            highscoreElement.innerText = highscore;
+        }
+    }
+
+    function restart() {
+        score = 0;
+        scoreElement.innerText = score;
+        obstacles = [];
+        gameSpeed = 5;
+        player.y = 300;
+        gameActive = true;
+        requestAnimationFrame(loop);
+    }
+
+    function loop() {
+        update();
+        draw();
+        if (gameActive) requestAnimationFrame(loop);
+    }
+
+    loop();
+</script>
+</body>
+</html>
